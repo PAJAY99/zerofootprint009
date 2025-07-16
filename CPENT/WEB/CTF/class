@@ -1,0 +1,7 @@
+sudo apt remove python3-httpx -y  or sudo rm /usr/bin/httpx
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest  
+export PATH=$PATH:~/go/bin 
+echo 'export PATH=$PATH:~/go/bin' >> ~/.bashrc 
+httpx -version 
+ subfinder -d lmbsweets.com -silent | httpx -sc -title -tech-detect -no-color  
+ subfinder -d adidas.com -silent | httpx --silent --status-code
