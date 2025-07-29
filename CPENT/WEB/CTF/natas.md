@@ -94,3 +94,19 @@ After login into the site, you can see the source code of the page.
 
 ![alt text](image-11.png)
 
+-------------------------------------------------------------------------------------                        
+
+Natas Level 8 → Level 9 
+
+Username:natas9                                     
+
+URL:      http://natas9.natas.labs.overthewire.org      
+
+natas9:  ZE1ck82lmdGIoErlhQgWND6j2Wzz6b6t
+
+
+![alt text](image-12.png)
+![alt text](image-13.png)
+![alt text](image-14.png)
+
+
