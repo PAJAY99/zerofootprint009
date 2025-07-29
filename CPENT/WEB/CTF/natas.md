@@ -23,3 +23,17 @@ Username: natas2
 URL:      http://natas2.natas.labs.overthewire.org
 ![alt text](image-2.png)
 
+------------------------------------------------
+
+Natas Level 2 → Level 3
+
+Username: natas3
+URL:      http://natas3.natas.labs.overthewire.org
+![alt text](image-3.png)
+password: natas3:3gqisGdR0pjm6tpkDKdIWO2hSvchLeYH
+--------------------------------------------------------------------------
+
+Natas Level 3 → Level 4
+
+Username: natas4    
+URL:      http://natas4.natas.labs.overthewire.org  
