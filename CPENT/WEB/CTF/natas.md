@@ -65,4 +65,16 @@ natas6:  0RoJwHdSKWFTYR5WuiAewauSuNaBXned
 
  ![alt text](image-6.png)
 
+---------------------------------------------------------------------------         
+
+Natas Level 6 → Level 7
+
+Username: natas7
+
+URL:      http://natas7.natas.labs.overthewire.org
+
+natas7:  bmg8SvU1LizuWjx3y7xkNERkHxGre0GS
+![alt text](image-7.png)
+![alt text](image-8.png)
+![alt text](image-9.png)
 
