@@ -52,4 +52,17 @@ URL:      http://natas5.natas.labs.overthewire.org
 
 natas5:   0n35PkggAPm2zbEpOU802c0x0Msn1ToK
 
-![alt text](image-5.png)
+![alt text](image-5.png)    
+
+---------------------------------------------------------------------------
+Natas Level 5 → Level 6
+
+Username: natas6
+
+URL:      http://natas6.natas.labs.overthewire.org
+
+natas6:  0RoJwHdSKWFTYR5WuiAewauSuNaBXned
+
+ ![alt text](image-6.png)
+
+
