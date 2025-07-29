@@ -37,3 +37,19 @@ Natas Level 3 → Level 4
 
 Username: natas4    
 URL:      http://natas4.natas.labs.overthewire.org  
+
+http://natas3.natas.labs.overthewire.org/robots.txt
+
+### The robots.txt file is used to control the behavior of the users configuration on a website.
+
+![alt text](image-4.png)    
+natas4:QryZXc2e0zahULdHrtHxzyYkj59kUxLQ
+---------------------------------------------------------------------------
+Natas Level 4 → Level 5
+
+Username: natas5    
+URL:      http://natas5.natas.labs.overthewire.org
+
+natas5:   0n35PkggAPm2zbEpOU802c0x0Msn1ToK
+
+![alt text](image-5.png)
