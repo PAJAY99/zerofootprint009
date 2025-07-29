@@ -109,4 +109,20 @@ natas9:  ZE1ck82lmdGIoErlhQgWND6j2Wzz6b6t
 ![alt text](image-13.png)
 ![alt text](image-14.png)
 
+-------------------------------------------------------------------------------------------     
+Natas Level 9 → Level 10
+
+Username: natas10   
+
+URL:      http://natas10.natas.labs.overthewire.org   
+
+natas10:  t7I5VHvpa14sJTUGV0cbEsbYfFP2dmOu
+
+![alt text](image-15.png)
+;cat /etc/natas_webpass/natas10
+&& cat /etc/natas_webpass/natas10
+
+![alt text](image-16.png)
+
+![alt text](image-17.png)   
 
