@@ -1,0 +1,181 @@
+name: Golden AMI Pipeline with Security Scan
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  build-scan-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: 'latest'
+
+      - name: Build AMI
+        id: build
+        run: |
+          cd packer
+          packer init .
+          packer validate .
+          packer build -machine-readable . | tee build.log
+          
+          # Extract AMI ID
+          AMI_ID=$(grep 'artifact,0,id' build.log | cut -d, -f6 | cut -d: -f2)
+          echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
+          echo "Built AMI: $AMI_ID"
+
+      - name: Launch Temporary EC2 for Scanning
+        id: temp_ec2
+        run: |
+          # Launch EC2 instance from the new AMI for scanning
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ${{ steps.build.outputs.ami_id }} \
+            --instance-type t2.micro \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=tenable-scan-temp}]' \
+            --query 'Instances[0].InstanceId' \
+            --output text)
+          
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Launched instance: $INSTANCE_ID"
+          
+          # Wait for instance to be running
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          
+          # Get instance IP
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "Instance IP: $INSTANCE_IP"
+
+      - name: Install Tenable Agent on EC2
+        run: |
+          # Wait for SSH to be ready
+          sleep 60
+          
+          # SSH and install Tenable agent
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ steps.temp_ec2.outputs.instance_ip }} << 'EOF'
+            # Download and install Tenable agent
+            wget https://sensor.cloud.tenable.com/install/NessusAgent-latest-ubuntu1404_amd64.deb
+            sudo dpkg -i NessusAgent-latest-ubuntu1404_amd64.deb
+            
+            # Link agent to Tenable.io
+            sudo /opt/nessus_agent/sbin/nessuscli agent link \
+              --key=${{ secrets.TENABLE_LINKING_KEY }} \
+              --name="golden-ami-scan" \
+              --groups="AMI-Scanning"
+          EOF
+
+      - name: Trigger Tenable Vulnerability Scan
+        id: tenable_scan
+        run: |
+          # Create and launch scan via Tenable.io API
+          SCAN_ID=$(curl -s -X POST \
+            "https://cloud.tenable.com/scans" \
+            -H "X-ApiKeys: accessKey=${{ secrets.TENABLE_ACCESS_KEY }}; secretKey=${{ secrets.TENABLE_SECRET_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "uuid": "731a8e52-3ea6-a291-ec0a-d2ff0619c19d7bd788d6be818b65",
+              "settings": {
+                "name": "Golden AMI Scan - ${{ github.sha }}",
+                "text_targets": "${{ steps.temp_ec2.outputs.instance_ip }}",
+                "agent_group_id": ["AMI-Scanning"]
+              }
+            }' | jq -r '.scan.id')
+          
+          echo "scan_id=$SCAN_ID" >> $GITHUB_OUTPUT
+          
+          # Launch the scan
+          curl -X POST \
+            "https://cloud.tenable.com/scans/$SCAN_ID/launch" \
+            -H "X-ApiKeys: accessKey=${{ secrets.TENABLE_ACCESS_KEY }}; secretKey=${{ secrets.TENABLE_SECRET_KEY }}"
+          
+          echo "Started Tenable scan: $SCAN_ID"
+
+      - name: Wait for Scan Completion
+        run: |
+          SCAN_ID=${{ steps.tenable_scan.outputs.scan_id }}
+          
+          # Poll scan status every 60 seconds
+          while true; do
+            STATUS=$(curl -s -X GET \
+              "https://cloud.tenable.com/scans/$SCAN_ID" \
+              -H "X-ApiKeys: accessKey=${{ secrets.TENABLE_ACCESS_KEY }}; secretKey=${{ secrets.TENABLE_SECRET_KEY }}" \
+              | jq -r '.info.status')
+            
+            echo "Scan status: $STATUS"
+            
+            if [ "$STATUS" = "completed" ]; then
+              break
+            fi
+            
+            sleep 60
+          done
+
+      - name: Get Scan Results and Check for Critical Vulnerabilities
+        id: scan_results
+        run: |
+          SCAN_ID=${{ steps.tenable_scan.outputs.scan_id }}
+          
+          # Get vulnerability summary
+          RESULTS=$(curl -s -X GET \
+            "https://cloud.tenable.com/scans/$SCAN_ID" \
+            -H "X-ApiKeys: accessKey=${{ secrets.TENABLE_ACCESS_KEY }}; secretKey=${{ secrets.TENABLE_SECRET_KEY }}")
+          
+          CRITICAL=$(echo $RESULTS | jq -r '.info.hostcount')
+          HIGH=$(echo $RESULTS | jq -r '.hosts[0].critical // 0')
+          
+          echo "Critical vulnerabilities: $CRITICAL"
+          echo "High vulnerabilities: $HIGH"
+          
+          # Fail pipeline if critical vulnerabilities found
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ CRITICAL vulnerabilities found! Blocking deployment."
+            exit 1
+          fi
+          
+          echo "✅ Security scan passed!"
+
+      - name: Cleanup Temporary EC2
+        if: always()
+        run: |
+          # Terminate the temporary scanning instance
+          aws ec2 terminate-instances \
+            --instance-ids ${{ steps.temp_ec2.outputs.instance_id }}
+          
+          echo "Cleaned up temporary instance"
+
+      - name: Setup Terraform
+        if: success()
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 'latest'
+
+      - name: Deploy Infrastructure
+        if: success()
+        run: |
+          cd terraform
+          terraform init
+          terraform plan -var="ami_id=${{ steps.build.outputs.ami_id }}"
+          terraform apply -auto-approve -var="ami_id=${{ steps.build.outputs.ami_id }}"
+          
+          echo "✅ Deployed secure Golden AMI to production!"
